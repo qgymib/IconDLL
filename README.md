@@ -27,3 +27,7 @@ To generate python dependency:
 ```powershell
 pip freeze > requirements.txt
 ```
+
+## Third_party
+
++ [svg_to_ico](https://github.com/Ortham/svg_to_ico)

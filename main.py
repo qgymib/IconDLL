@@ -1,42 +1,63 @@
 from PIL import Image
-from pathlib import Path
 import argparse
 import icondll.core
-import zipfile
+import subprocess
+import hashlib
 import tempfile
 import os
 
-def process_img(tmpdir, idx, input_file, icons):
+def get_file_sha1(path):
     """
-    A function to process an image by creating a temporary directory for the input file, converting the image to .ico format, and adding the .ico to the list of icons. 
+    Calculate the SHA-1 hash of the file located at the given path.
+
+    Parameters:
+    path (str): The path to the file.
+
+    Returns:
+    str: The SHA-1 hash of the file.
+    """
+    sha1 = hashlib.sha1()
+    with open(path, 'rb') as f:
+        while True:
+            data = f.read(65536)
+            if not data:
+                break
+            sha1.update(data)
+    return sha1.hexdigest()
+
+def process_img(tmpdir, input_file, icons):
+    """
+    A function to process an image by converting the image to .ico format, and adding the .ico to the list of icons. 
 
     Parameters:
     - tmpdir: The temporary directory path
-    - idx: The index of the image
     - input_file: The path of the input image file
     - icons: The list of icons
 
     Return:
     This function does not return anything.
     """
-    # Create a temporary directory for the input file.
-    abs_cwd_path = os.path.abspath(tmpdir + '/input_' + str(idx))
-    os.mkdir(abs_cwd_path)
     # Convert to .ico
-    file_name = Path(input_file).stem
     img = Image.open(input_file)
-    abs_dst_path = os.path.abspath(abs_cwd_path + '/' + file_name + '.ico')
+    abs_dst_path = os.path.abspath(tmpdir + '/' + get_file_sha1(input_file) + '.ico')
     img.save(abs_dst_path, 'ico')
     # Add the .ico to the list of icons
-    process_input(tmpdir, idx, abs_dst_path, icons)
+    process_input(tmpdir, abs_dst_path, icons)
 
-def process_ico(tmpdirname, idx, input_file, icons):
+def process_svg(tmpdir, input_file, icons):
+    """
+    Convert .svg to .ico
+    """
+    abs_dst_path = os.path.abspath(tmpdir + '/' + get_file_sha1(input_file) + '.ico')
+    subprocess.run([r'bin\svg_to_ico.exe', '-i', input_file, '-o', abs_dst_path], check=True)
+    process_input(tmpdir, abs_dst_path, icons)
+
+def process_ico(tmpdirname, input_file, icons):
     """
     This function processes the input file and appends it to the icons list.
 
     Parameters:
     - tmpdir: The temporary directory path
-    - idx: The index of the image
     - input_file: The path of the input image file
     - icons: The list of icons
 
@@ -45,13 +66,12 @@ def process_ico(tmpdirname, idx, input_file, icons):
     """
     icons.append(input_file)
 
-def handle_unknown_filetype(tmpdirname, idx, input_file, icons):
+def handle_unknown_filetype(tmpdirname, input_file, icons):
     """
     Handle unknown filetype and raise an exception.
 
     Args:
         tmpdirname (str): The temporary directory name.
-        idx (int): The index of the file.
         input_file (str): The input file name.
         icons (list): The list of icons.
 
@@ -61,13 +81,14 @@ def handle_unknown_filetype(tmpdirname, idx, input_file, icons):
     ext = os.path.splitext(input_file)[1]
     raise Exception(f"Unknown filetype: {ext}")
 
-def process_input(tmpdirname, idx, input_file, icons):
+def process_input(tmpdirname, input_file, icons):
     ext_map = {
+        '.svg': process_svg,
         '.png': process_img,
         '.ico': process_ico,
     }
     ext = os.path.splitext(input_file)[1]
-    ext_map.get(ext, handle_unknown_filetype)(tmpdirname, idx, input_file, icons)
+    ext_map.get(ext, handle_unknown_filetype)(tmpdirname, input_file, icons)
 
 def main():
     """
@@ -81,8 +102,9 @@ def main():
     # Process input files
     icons = []
     with tempfile.TemporaryDirectory() as tmpdir:
-        for i,file in enumerate(args.i, start=1):
-            process_input(tmpdir, i, file, icons)
+        for file in args.i:
+            file = os.path.abspath(file)
+            process_input(tmpdir, file, icons)
         icondll.core.create_dll_from_ico(tmpdir, icons, args.o)
 
 if __name__ == "__main__":

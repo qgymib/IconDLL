@@ -2,7 +2,6 @@ from typing import List
 
 import os
 import subprocess
-import tempfile
 
 def _generate_rc_file(icon_files: List[str], rc_file_path: str) -> None:
     """
