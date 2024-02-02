@@ -1,4 +1,3 @@
-from PIL import Image
 from typing import List
 
 import os
@@ -47,11 +46,12 @@ def _create_dll(res_file_path, dll_path):
     """
     subprocess.run(['link.exe', '/dll', '/noentry', '/out:' + dll_path, res_file_path], check=True)
 
-def create_dll_from_ico(icon_files: List[str], output_file_path: str) -> None:
+def create_dll_from_ico(tmpdir: str, icon_files: List[str], output_file_path: str) -> None:
     """
     Create an icon .dll file from a list of .ico files.
 
     Args:
+    tmpdir (str): Temporary directory path.
     icon_files (List[str]): List of icon file paths.
     output_file_path (str): Path to the output .dll file.
 
@@ -61,13 +61,11 @@ def create_dll_from_ico(icon_files: List[str], output_file_path: str) -> None:
     # Convert to absolute paths for better handling.
     abs_icon_files = [os.path.abspath(path) for path in icon_files]
     abs_output_file_path = os.path.abspath(output_file_path)
-    # Working in a temporary directory so things can be cleaned up.
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        # Generate a .rc resource file.
-        rc_file_path = os.path.abspath(tmpdirname + '/icon.rc')
-        _generate_rc_file(abs_icon_files, rc_file_path)
-        # Compile the .rc resource file into a .res file.
-        res_file_path = os.path.abspath(tmpdirname + '/icon.res')
-        _compile_resources(rc_file_path, res_file_path)
-        # Create a .dll file from the .res file.
-        _create_dll(res_file_path, abs_output_file_path)
+    # Generate a .rc resource file.
+    rc_file_path = os.path.abspath(tmpdir + '/icon.rc')
+    _generate_rc_file(abs_icon_files, rc_file_path)
+    # Compile the .rc resource file into a .res file.
+    res_file_path = os.path.abspath(tmpdir + '/icon.res')
+    _compile_resources(rc_file_path, res_file_path)
+    # Create a .dll file from the .res file.
+    _create_dll(res_file_path, abs_output_file_path)
